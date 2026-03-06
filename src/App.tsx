@@ -25,17 +25,15 @@ export default function App() {
   const [selectedSchool, setSelectedSchool] = useState<SchoolData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchData = async () => {
+  const fetchData = () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/schools');
-      if (!response.ok) {
-        throw new Error('Failed to fetch data');
+      const savedData = localStorage.getItem('schools_data');
+      if (savedData) {
+        setData(JSON.parse(savedData));
       }
-      const result = await response.json();
-      setData(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError('Erreur lors du chargement des données locales');
     } finally {
       setLoading(false);
     }
@@ -53,7 +51,7 @@ export default function App() {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results) => {
+      complete: (results) => {
         try {
           const parseFrenchNumber = (val: any) => {
             if (val === null || val === undefined || val === '') return 0;
@@ -65,18 +63,8 @@ export default function App() {
           };
 
           // Clean data and handle French number format (commas)
-          const cleanedData = results.data.map((row: any) => {
-            const cleaned: any = { ...row };
-            // Apply numeric parsing to all known numeric fields
-            const numericFields = [
-              'note_finale', 'rang', 
-              'excellence_attract_select_index_score_5', 
-              'international_exposition_index_score_5', 
-              'pro_tx_emploi_cefdg_score_5', 
-              'encadrement_index_score_5', 
-              'fiche_ecole_ouverture_sociale_index_score_5'
-            ];
-
+          const cleanedData = results.data.map((row: any, index: number) => {
+            const cleaned: any = { ...row, id_ecole: index + 1 };
             // Also handle any field ending in _brut or _score_5 or _score_2
             Object.keys(row).forEach(key => {
               if (key.endsWith('_brut') || key.endsWith('_score_5') || key.endsWith('_score_2') || key === 'note_finale' || key === 'rang' || key === 'id_ecole') {
@@ -87,15 +75,8 @@ export default function App() {
             return cleaned;
           });
 
-          const response = await fetch('/api/import', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cleanedData),
-          });
-
-          if (!response.ok) throw new Error('Import failed');
-          
-          await fetchData();
+          localStorage.setItem('schools_data', JSON.stringify(cleanedData));
+          setData(cleanedData);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Import failed');
         } finally {
