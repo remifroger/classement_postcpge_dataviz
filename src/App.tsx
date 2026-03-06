@@ -26,17 +26,8 @@ export default function App() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = () => {
-    setLoading(true);
-    try {
-      const savedData = localStorage.getItem('schools_data');
-      if (savedData) {
-        setData(JSON.parse(savedData));
-      }
-    } catch (err) {
-      setError('Erreur lors du chargement des données locales');
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+    setData([]);
   };
 
   useEffect(() => {
@@ -75,7 +66,6 @@ export default function App() {
             return cleaned;
           });
 
-          localStorage.setItem('schools_data', JSON.stringify(cleanedData));
           setData(cleanedData);
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Import failed');
@@ -116,17 +106,17 @@ export default function App() {
             </div>
             <h1 className="text-lg font-bold tracking-tight">Classement <span className="text-red-600">Post-CPGE</span></h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {data.length > 0 && (
               <button 
                 onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-xs font-semibold rounded-lg transition-colors"
               >
                 <RefreshCw className={`w-3 h-3 ${importing ? 'animate-spin' : ''}`} />
-                Ré-importer CSV
+                Changer de CSV
               </button>
             )}
-            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Classement 2026</span>
+            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Session Temporaire</span>
           </div>
         </div>
       </header>
