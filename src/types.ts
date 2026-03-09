@@ -9,7 +9,7 @@ export interface SchoolData {
   fiche_ecole_ouverture_sociale_index_brut: number;
   fiche_ecole_ouverture_sociale_index_score_5: number;
   excellence_duree_grade_master_score_5: number;
-  excellence_labels_internationaux_brut: number;
+  excellence_labels_internationaux_brut: string;
   excellence_labels_internationaux_score_5: number;
   excellence_nb_publications_brut: number;
   excellence_fwci_brut: number;
@@ -59,4 +59,19 @@ export interface SchoolData {
   environnement_label_ddrs_score_2: number;
   note_finale: number;
   rang: number;
+  [key: string]: any;
 }
+
+export type CriterionType = 'higher_is_better' | 'lower_is_better';
+
+export interface CriterionConfig {
+  id: string;
+  label: string;
+  brutKey: string;
+  scoreKey: string;
+  type: CriterionType;
+  isIndex?: boolean;
+  subCriteria?: string[]; // IDs of sub-criteria
+}
+
+export type ThresholdMap = Record<string, number[]>; // Map of criterion ID to 10 threshold values (for scores 0.5 to 5.0)

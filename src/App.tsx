@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { SchoolData } from './types';
+import { SchoolData, ThresholdMap, CriterionType } from './types';
 import { SchoolTable } from './components/SchoolTable';
 import { SchoolCharts } from './components/SchoolCharts';
 import { SchoolDetailModal } from './components/SchoolDetailModal';
+import { ThresholdEditor } from './components/ThresholdEditor';
+import { CRITERIA_CONFIG, FIXED_CRITERIA } from './constants';
 import { 
   GraduationCap, 
   Globe, 
@@ -12,13 +14,18 @@ import {
   Loader2,
   Upload,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Settings2,
+  LayoutDashboard
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
 
 export default function App() {
-  const [data, setData] = useState<SchoolData[]>([]);
+  const [originalData, setOriginalData] = useState<SchoolData[]>([]);
+  const [thresholds, setThresholds] = useState<ThresholdMap>({});
+  const [initialThresholds, setInitialThresholds] = useState<ThresholdMap>({});
+  const [viewMode, setViewMode] = useState<'dashboard' | 'edition'>('dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
@@ -27,12 +34,92 @@ export default function App() {
 
   const fetchData = () => {
     setLoading(false);
-    setData([]);
+    setOriginalData([]);
   };
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  const calculateScore = (value: number, thresholds: number[], type: CriterionType): number => {
+    const scores = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+    let bestScore = 0;
+
+    if (type === 'higher_is_better') {
+      for (let i = 0; i < thresholds.length; i++) {
+        if (value >= thresholds[i]) {
+          bestScore = scores[i];
+        }
+      }
+    } else {
+      // For lower is better, we assume thresholds are ordered from highest to lowest value
+      // Score 0.5: <= 100
+      // Score 1.0: <= 90
+      // ...
+      // Score 5.0: <= 10
+      for (let i = 0; i < thresholds.length; i++) {
+        if (value <= thresholds[i]) {
+          bestScore = scores[i];
+        }
+      }
+    }
+    return bestScore;
+  };
+
+  const processedData = React.useMemo(() => {
+    if (originalData.length === 0) return [];
+
+    const newData = originalData.map(school => {
+      const updatedSchool = { ...school };
+      
+      // 1. Calculate scores from thresholds ONLY if they have been modified
+      CRITERIA_CONFIG.forEach(criterion => {
+        const thresholdValues = thresholds[criterion.id];
+        const initialT = initialThresholds[criterion.id];
+        
+        // Check if thresholds for this criterion have been modified by the user
+        const isModified = initialT && JSON.stringify(thresholdValues) !== JSON.stringify(initialT);
+        
+        if (isModified && thresholdValues) {
+          updatedSchool[criterion.scoreKey] = calculateScore(
+            updatedSchool[criterion.brutKey],
+            thresholdValues,
+            criterion.type
+          );
+        }
+        // If not modified, updatedSchool[criterion.scoreKey] remains the value from the CSV
+      });
+
+      // 2. Calculate note_finale
+      // Using the explicit formula provided by the user (13 items)
+      // Note: Sub-criteria are NOT added to the total, only the index scores and standalone scores are.
+      const scoreKeys = [
+        'fiche_ecole_ouverture_sociale_index_score_5',
+        'excellence_duree_grade_master_score_5',
+        'excellence_labels_internationaux_score_5',
+        'encadrement_index_score_5',
+        'excellence_attract_select_index_score_5',
+        'excellence_prepa_score_5',
+        'excellence_part_dble_diplomes_fr_score_5',
+        'pro_salaire_sortie_src_insersup_score_5',
+        'pro_tx_emploi_cefdg_score_5',
+        'international_part_partenaires_accrdt_score_5',
+        'international_reputation_index_score_5',
+        'international_exposition_index_score_5',
+        'environnement_label_ddrs_score_2'
+      ];
+
+      const totalScore = scoreKeys.reduce((acc, key) => acc + (updatedSchool[key] || 0), 0);
+
+      updatedSchool.note_finale = totalScore;
+      return updatedSchool;
+    });
+
+    // 4. Update ranking
+    return [...newData]
+      .sort((a, b) => b.note_finale - a.note_finale)
+      .map((school, index) => ({ ...school, rang: index + 1 }));
+  }, [originalData, thresholds]);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -47,26 +134,51 @@ export default function App() {
           const parseFrenchNumber = (val: any) => {
             if (val === null || val === undefined || val === '') return 0;
             if (typeof val === 'number') return val;
-            // Replace comma with dot and parse
             const normalized = String(val).replace(',', '.').replace(/\s/g, '');
             const parsed = parseFloat(normalized);
             return isNaN(parsed) ? 0 : parsed;
           };
 
-          // Clean data and handle French number format (commas)
           const cleanedData = results.data.map((row: any, index: number) => {
             const cleaned: any = { ...row, id_ecole: index + 1 };
-            // Also handle any field ending in _brut or _score_5 or _score_2
             Object.keys(row).forEach(key => {
-              if (key.endsWith('_brut') || key.endsWith('_score_5') || key.endsWith('_score_2') || key === 'note_finale' || key === 'rang' || key === 'id_ecole') {
+              if (key.endsWith('_brut') || key.endsWith('_score_5') || key.endsWith('_score_2') || key === 'note_finale' || key === 'rang' || key === 'id_ecole' || key === 'excellence_moy_bac_integres') {
                 cleaned[key] = parseFrenchNumber(row[key]);
               }
             });
-
             return cleaned;
           });
 
-          setData(cleanedData);
+          setOriginalData(cleanedData);
+          
+          // Infer thresholds from the imported CSV data
+          const inferredThresholds: ThresholdMap = {};
+          const scores = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
+
+          CRITERIA_CONFIG.forEach(criterion => {
+            const thresholdValues = new Array(10).fill(0);
+            
+            scores.forEach((score, idx) => {
+              const schoolsWithScore = cleanedData.filter(s => s[criterion.scoreKey] === score);
+              if (schoolsWithScore.length > 0) {
+                const brutValues = schoolsWithScore.map(s => s[criterion.brutKey]);
+                if (criterion.type === 'higher_is_better') {
+                  thresholdValues[idx] = Math.min(...brutValues);
+                } else {
+                  thresholdValues[idx] = Math.max(...brutValues);
+                }
+              } else {
+                // Fallback if no school has this exact score
+                thresholdValues[idx] = idx > 0 ? thresholdValues[idx - 1] : 0;
+              }
+            });
+            
+            inferredThresholds[criterion.id] = thresholdValues;
+          });
+
+          setThresholds(inferredThresholds);
+          setInitialThresholds(inferredThresholds);
+
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Import failed');
         } finally {
@@ -80,25 +192,25 @@ export default function App() {
     });
   };
 
-  if (loading && data.length === 0) {
+  if (loading && originalData.length === 0) {
     return (
       <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 text-emerald-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-red-500 animate-spin" />
           <p className="text-sm font-medium text-zinc-500">Chargement des données...</p>
         </div>
       </div>
     );
   }
 
-  const stats = data.length > 0 ? [
-    { label: 'Écoles Classées', value: data.length, icon: GraduationCap, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Moyenne Note Finale', value: (data.reduce((acc, curr) => acc + curr.note_finale, 0) / data.length).toFixed(2), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+  const stats = processedData.length > 0 ? [
+    { label: 'Écoles Classées', value: processedData.length, icon: GraduationCap, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Moyenne Note Finale', value: (processedData.reduce((acc, curr) => acc + curr.note_finale, 0) / processedData.length).toFixed(2), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50' },
   ] : [];
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-emerald-100 selection:text-emerald-900">
-      <header className="bg-white border-b border-black/5 sticky top-0 z-10 backdrop-blur-md bg-white/80">
+    <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans selection:bg-red-100 selection:text-red-900">
+      <header className="bg-white border-b border-black/5 sticky top-0 z-20 backdrop-blur-md bg-white/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
@@ -106,15 +218,43 @@ export default function App() {
             </div>
             <h1 className="text-lg font-bold tracking-tight">Classement <span className="text-red-600">Post-CPGE</span></h1>
           </div>
+          
           <div className="flex items-center gap-3">
-            {data.length > 0 && (
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-xs font-semibold rounded-lg transition-colors"
-              >
-                <RefreshCw className={`w-3 h-3 ${importing ? 'animate-spin' : ''}`} />
-                Changer de CSV
-              </button>
+            {processedData.length > 0 && (
+              <>
+                <div className="flex bg-zinc-100 p-1 rounded-xl mr-2">
+                  <button
+                    onClick={() => setViewMode('dashboard')}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === 'dashboard' 
+                        ? 'bg-white text-zinc-900 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-700'
+                    }`}
+                  >
+                    <LayoutDashboard className="w-3.5 h-3.5" />
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={() => setViewMode('edition')}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      viewMode === 'edition' 
+                        ? 'bg-white text-zinc-900 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-700'
+                    }`}
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    Édition
+                  </button>
+                </div>
+
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-600 text-xs font-semibold rounded-lg transition-colors"
+                >
+                  <RefreshCw className={`w-3 h-3 ${importing ? 'animate-spin' : ''}`} />
+                  Changer de CSV
+                </button>
+              </>
             )}
             <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Session Temporaire</span>
           </div>
@@ -130,7 +270,7 @@ export default function App() {
           className="hidden" 
         />
 
-        {data.length === 0 ? (
+        {processedData.length === 0 ? (
           <div className="min-h-[60vh] flex items-center justify-center">
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
@@ -193,8 +333,40 @@ export default function App() {
                 </motion.div>
               ))}
             </div>
-            <SchoolCharts data={data} onSchoolClick={setSelectedSchool} />
-            <SchoolTable data={data} onSchoolClick={setSelectedSchool} />
+
+            <AnimatePresence mode="wait">
+              {viewMode === 'dashboard' ? (
+                <motion.div
+                  key="dashboard"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SchoolCharts data={processedData} onSchoolClick={setSelectedSchool} />
+                  <SchoolTable data={processedData} onSchoolClick={setSelectedSchool} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="edition"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <ThresholdEditor 
+                    thresholds={thresholds} 
+                    onChange={setThresholds} 
+                    data={originalData}
+                    initialThresholds={initialThresholds}
+                  />
+                  <div className="mt-8">
+                    <h3 className="text-lg font-bold mb-4">Aperçu du Classement Temps Réel</h3>
+                    <SchoolTable data={processedData} onSchoolClick={setSelectedSchool} />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </>
         )}
       </main>

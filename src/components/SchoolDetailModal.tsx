@@ -38,7 +38,6 @@ export const SchoolDetailModal: React.FC<SchoolDetailModalProps> = ({ school, on
         { label: "Attractivité & Sélectivité", value: school.excellence_attract_select_index_score_5, max: 5, brut: school.excellence_attract_select_index_brut },
         { label: "Part de Prépas", value: school.excellence_prepa_score_5, max: 5, brut: school.excellence_prepa_brut },
         { label: "Double Diplômes FR", value: school.excellence_part_dble_diplomes_fr_score_5, max: 5, brut: school.excellence_part_dble_diplomes_fr_brut },
-        { label: "Impact Recherche", value: school.excellence_impact_rech_index_score_5, max: 5, brut: school.excellence_impact_rech_index_brut },
         { label: "Labels Internationaux", value: school.excellence_labels_internationaux_score_5, max: 5, brut: school.excellence_labels_internationaux_brut },
         { label: "Durée Grade Master", value: school.excellence_duree_grade_master_score_5, max: 5 },
       ]
@@ -109,7 +108,7 @@ export const SchoolDetailModal: React.FC<SchoolDetailModalProps> = ({ school, on
                     {school.type}
                   </span>
                   <span className="text-sm font-bold text-red-600">
-                    Note: {school.note_finale.toFixed(2)}/100
+                    Note: {school.note_finale.toFixed(2)} / 62
                   </span>
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-black text-zinc-900 tracking-tight">
