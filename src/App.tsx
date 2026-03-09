@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { SchoolData, ThresholdMap, CriterionType } from './types';
 import { SchoolTable } from './components/SchoolTable';
 import { SchoolCharts } from './components/SchoolCharts';
+import { SchoolScatterPlot } from './components/SchoolScatterPlot';
 import { SchoolDetailModal } from './components/SchoolDetailModal';
 import { ThresholdEditor } from './components/ThresholdEditor';
 import { CRITERIA_CONFIG, FIXED_CRITERIA } from './constants';
@@ -314,7 +315,7 @@ export default function App() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-8">
               {stats.map((stat, index) => (
                 <motion.div
                   key={stat.label}
@@ -344,6 +345,7 @@ export default function App() {
                   transition={{ duration: 0.2 }}
                 >
                   <SchoolCharts data={processedData} onSchoolClick={setSelectedSchool} />
+                  <SchoolScatterPlot data={processedData} onSchoolClick={setSelectedSchool} />
                   <SchoolTable data={processedData} onSchoolClick={setSelectedSchool} />
                 </motion.div>
               ) : (

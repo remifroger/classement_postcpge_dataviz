@@ -214,7 +214,7 @@ export const SchoolCharts: React.FC<SchoolChartsProps> = ({ data, onSchoolClick 
                 <Tooltip 
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '12px', fontWeight: 600 }}
                 />
-                <Legend wrapperStyle={{ paddingTop: '40px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                <Legend wrapperStyle={{ paddingTop: '40px', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }} />
               </RadarChart>
             </ResponsiveContainer>
           ) : (
