@@ -134,9 +134,9 @@ export const SchoolScatterPlot: React.FC<SchoolScatterPlotProps> = ({ data, onSc
       </div>
 
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-          <h4 className="text-[10px] font-black text-emerald-700 uppercase mb-1 tracking-widest">Zone de Performance</h4>
-          <p className="text-[11px] text-emerald-600 leading-relaxed">
+        <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+          <h4 className="text-[10px] font-black text-blue-700 uppercase mb-1 tracking-widest">Zone de Performance</h4>
+          <p className="text-[11px] text-blue-600 leading-relaxed">
             Les écoles en haut à droite excellent sur les deux critères sélectionnés simultanément.
           </p>
         </div>

@@ -29,8 +29,8 @@ export const CategoryLeaders: React.FC<CategoryLeadersProps> = ({ data, onSchool
     {
       title: "Insertion Pro",
       icon: Briefcase,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
       key: "pro_tx_emploi_cefdg_score_5",
       description: "Meilleurs salaires & taux d'emploi"
     },
@@ -45,8 +45,8 @@ export const CategoryLeaders: React.FC<CategoryLeadersProps> = ({ data, onSchool
     {
       title: "Environnement",
       icon: Leaf,
-      color: "text-green-600",
-      bg: "bg-green-50",
+      color: "text-violet-600",
+      bg: "bg-violet-50",
       key: "environnement_label_ddrs_score_2",
       description: "Engagement DDRS le plus fort"
     }

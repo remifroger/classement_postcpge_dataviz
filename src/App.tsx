@@ -17,7 +17,8 @@ import {
   FileText,
   RefreshCw,
   Settings2,
-  LayoutDashboard
+  LayoutDashboard,
+  Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
@@ -121,6 +122,25 @@ export default function App() {
       .sort((a, b) => b.note_finale - a.note_finale)
       .map((school, index) => ({ ...school, rang: index + 1 }));
   }, [originalData, thresholds]);
+
+  const handleExportCSV = () => {
+    if (processedData.length === 0) return;
+    
+    // Sort by rank before exporting
+    const exportData = [...processedData].sort((a, b) => a.rang - b.rang);
+    
+    const csv = Papa.unparse(exportData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `classement_ecoles_modifie_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -363,7 +383,16 @@ export default function App() {
                     initialThresholds={initialThresholds}
                   />
                   <div className="mt-8">
-                    <h3 className="text-lg font-bold mb-4">Aperçu du Classement Temps Réel</h3>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-bold">Aperçu du Classement Temps Réel</h3>
+                      <button
+                        onClick={handleExportCSV}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-md"
+                      >
+                        <Download className="w-4 h-4" />
+                        Exporter en CSV
+                      </button>
+                    </div>
                     <SchoolTable data={processedData} onSchoolClick={setSelectedSchool} />
                   </div>
                 </motion.div>
