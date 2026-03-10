@@ -409,9 +409,8 @@ export default function App() {
 
       <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 border-t border-black/5 mt-12">
         <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-zinc-400 text-sm">
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-zinc-900">Méthodologie</a>
-            <a href="#" className="hover:text-zinc-900">Sources</a>
+          <div>
+            © {new Date().getFullYear()} Classement des Écoles de Commerce
           </div>
         </div>
       </footer>

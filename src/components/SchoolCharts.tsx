@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SchoolData } from '../types';
+import { CRITERIA_CONFIG } from '../constants';
 import { 
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, ResponsiveContainer, Tooltip
 } from 'recharts';
@@ -17,6 +18,7 @@ export const SchoolCharts: React.FC<SchoolChartsProps> = ({ data, onSchoolClick 
   
   // State for Radar Chart selection
   const [selectedSchoolIds, setSelectedSchoolIds] = useState<number[]>([]);
+  const [reliefMetric, setReliefMetric] = useState<string>('note_finale');
 
   // Initialize selection when data arrives
   useEffect(() => {
@@ -73,10 +75,29 @@ export const SchoolCharts: React.FC<SchoolChartsProps> = ({ data, onSchoolClick 
   ];
 
   // Relief Ranking Calculation
-  const maxScore = sortedData[0]?.note_finale || 100;
-  const minScore = sortedData[sortedData.length - 1]?.note_finale || 0;
+  const reliefData = useMemo(() => {
+    const data = reliefMetric === 'note_finale' 
+      ? sortedData 
+      : [...sortedData].sort((a, b) => {
+          const valA = (a as any)[reliefMetric] || 0;
+          const valB = (b as any)[reliefMetric] || 0;
+          return valB - valA;
+        });
+
+    // Handle ex-aequo by calculating horizontal offsets
+    const scoreGroups: Record<string, number> = {};
+    return data.map(school => {
+      const score = ((school as any)[reliefMetric] || 0).toFixed(1);
+      const tieIndex = scoreGroups[score] || 0;
+      scoreGroups[score] = tieIndex + 1;
+      return { ...school, tieIndex };
+    });
+  }, [sortedData, reliefMetric]);
+
+  const maxScore = reliefData.length > 0 ? (reliefData[0] as any)[reliefMetric] || 0 : 100;
+  const minScore = reliefData.length > 0 ? (reliefData[reliefData.length - 1] as any)[reliefMetric] || 0 : 0;
   const scoreRange = maxScore - minScore;
-  const RELIEF_HEIGHT = 2000; // Increased height for better spacing
+  const RELIEF_HEIGHT = reliefMetric === 'note_finale' ? 2000 : 800; 
 
   const scrollToRelief = () => {
     reliefRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -93,12 +114,27 @@ export const SchoolCharts: React.FC<SchoolChartsProps> = ({ data, onSchoolClick 
         <div className="flex items-center justify-between mb-8">
           <div>
             <h3 className="text-xl font-bold tracking-tight text-zinc-900">Classement en Relief</h3>
-            <p className="text-sm text-zinc-500">Écarts réels basés sur la note finale</p>
+            <p className="text-sm text-zinc-500">Écarts réels basés sur {reliefMetric === 'note_finale' ? 'la note finale' : 'le critère sélectionné'}</p>
           </div>
-          <div className="p-2 bg-zinc-50 rounded-lg group relative cursor-help">
-            <Info className="w-4 h-4 text-zinc-400" />
-            <div className="absolute right-0 top-full mt-2 w-48 p-2 bg-zinc-900 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
-              La distance verticale entre les écoles représente l'écart de points réel.
+          <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-1">
+              <label className="text-[9px] font-bold text-zinc-400 uppercase ml-1">Visualiser par</label>
+              <select 
+                value={reliefMetric} 
+                onChange={(e) => setReliefMetric(e.target.value)}
+                className="bg-zinc-50 border border-black/5 rounded-lg px-3 py-1.5 text-xs font-bold text-zinc-700 outline-none focus:ring-2 focus:ring-red-500/20"
+              >
+                <option value="note_finale">Note Finale (Total)</option>
+                {CRITERIA_CONFIG.map(c => (
+                  <option key={c.scoreKey} value={c.scoreKey}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="p-2 bg-zinc-50 rounded-lg group relative cursor-help">
+              <Info className="w-4 h-4 text-zinc-400" />
+              <div className="absolute right-0 top-full mt-2 w-48 p-2 bg-zinc-900 text-white text-[10px] rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
+                La distance verticale entre les écoles représente l'écart de points réel sur le critère choisi.
+              </div>
             </div>
           </div>
         </div>
@@ -108,35 +144,39 @@ export const SchoolCharts: React.FC<SchoolChartsProps> = ({ data, onSchoolClick 
             {/* The Track Line */}
             <div className="absolute left-12 top-0 bottom-0 w-px bg-zinc-100" />
             
-            {sortedData.map((school, index) => {
-              const rawPosition = scoreRange === 0 ? 0 : ((maxScore - school.note_finale) / scoreRange) * (RELIEF_HEIGHT - 60);
-              
-              // Simple de-clumping: if schools are too close, add a small offset based on index
-              // This ensures they don't perfectly overlap even if scores are identical
-              const position = rawPosition + (index * 0.5); 
+            {reliefData.map((school, index) => {
+              const currentScore = (school as any)[reliefMetric] || 0;
+              const position = scoreRange === 0 ? 0 : ((maxScore - currentScore) / scoreRange) * (RELIEF_HEIGHT - 60);
+              const horizontalOffset = (school as any).tieIndex * 45;
 
               return (
                 <motion.div
                   key={school.id_ecole}
                   initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.01 }}
-                  className="absolute left-0 right-0 flex items-center group"
-                  style={{ top: `${position}px`, zIndex: sortedData.length - index }}
+                  animate={{ opacity: 1, x: horizontalOffset }}
+                  whileHover={{ zIndex: 100, scale: 1.05, x: horizontalOffset + 10 }}
+                  transition={{ 
+                    delay: index * 0.01,
+                    scale: { duration: 0.2 },
+                    zIndex: { duration: 0 },
+                    x: { duration: 0.2 }
+                  }}
+                  className="absolute left-0 flex items-center group w-fit"
+                  style={{ top: `${position}px`, zIndex: reliefData.length - index }}
                 >
-                  <div className="w-12 text-right pr-4 text-[10px] font-bold text-zinc-400 tabular-nums">
-                    {school.note_finale.toFixed(1)}
+                  <div className="w-12 text-right pr-4 text-[10px] font-bold text-zinc-400 tabular-nums shrink-0">
+                    {currentScore.toFixed(1)}
                   </div>
                   
-                  <div className="relative flex items-center flex-1">
-                    <div className="w-2 h-2 rounded-full bg-red-600 border-2 border-white shadow-sm z-10 group-hover:scale-150 transition-transform" />
+                  <div className="relative flex items-center w-[280px] shrink-0">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-600 border-2 border-white shadow-sm z-10 group-hover:scale-125 group-hover:bg-red-500 transition-all" />
                     <div 
                       onClick={() => onSchoolClick(school)}
-                      className="ml-4 flex items-center gap-3 bg-white group-hover:bg-zinc-50 p-2 rounded-xl border border-black/5 shadow-sm group-hover:shadow-md transition-all w-full cursor-pointer"
+                      className="ml-4 flex items-center gap-3 bg-white group-hover:bg-white p-2.5 rounded-xl border border-black/5 group-hover:border-red-200 shadow-sm group-hover:shadow-xl transition-all w-full cursor-pointer overflow-hidden"
                     >
-                      <span className="text-[10px] font-black text-zinc-300 w-4">{school.rang}</span>
+                      <span className="text-[10px] font-black text-zinc-300 w-4 shrink-0">{school.rang}</span>
                       <span className="text-xs font-semibold text-zinc-700 truncate flex-1">{school.ecole}</span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();

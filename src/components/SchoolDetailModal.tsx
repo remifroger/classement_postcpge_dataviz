@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SchoolData } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Award, Globe, Briefcase, Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { X, Award, Globe, Briefcase, Users, ChevronDown, ChevronRight, Radar as RadarIcon } from 'lucide-react';
+import { 
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip
+} from 'recharts';
 
 interface Metric {
   label: string;
@@ -79,6 +82,22 @@ export const SchoolDetailModal: React.FC<SchoolDetailModalProps> = ({ school, on
     }
   ];
 
+  const radarData = useMemo(() => {
+    const metrics = [
+      { subject: 'International', key: 'international_exposition_index_score_5' },
+      { subject: 'Excellence', key: 'excellence_attract_select_index_score_5' },
+      { subject: 'Pro', key: 'pro_tx_emploi_cefdg_score_5' },
+      { subject: 'Encadrement', key: 'encadrement_index_score_5' },
+      { subject: 'Ouverture Sociale', key: 'fiche_ecole_ouverture_sociale_index_score_5' },
+    ];
+
+    return metrics.map(metric => ({
+      subject: metric.subject,
+      value: (school as any)[metric.key] || 0,
+      fullMark: 5
+    }));
+  }, [school]);
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -126,42 +145,81 @@ export const SchoolDetailModal: React.FC<SchoolDetailModalProps> = ({ school, on
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6 sm:p-8 custom-scrollbar">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {sections.map((section) => (
-                <div key={section.title} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 ${section.bg} rounded-lg`}>
-                      <section.icon className={`w-5 h-5 ${section.color}`} />
-                    </div>
-                    <h3 className="font-bold text-zinc-900 tracking-tight">{section.title}</h3>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    {section.metrics.map((metric) => (
-                      <div key={metric.label} className="space-y-2">
-                        <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-zinc-700">{metric.label}</span>
-                            {metric.brut !== undefined && (
-                              <span className="text-[9px] font-medium text-zinc-400 lowercase italic">
-                                Donnée brute: {typeof metric.brut === 'number' ? metric.brut.toLocaleString() : metric.brut}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-zinc-900">{metric.value.toFixed(2)} / {metric.max}</span>
-                        </div>
-                        <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(metric.value / metric.max) * 100}%` }}
-                            className={`h-full ${section.barColor}`}
-                          />
-                        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
+                {sections.map((section) => (
+                  <div key={section.title} className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 ${section.bg} rounded-lg`}>
+                        <section.icon className={`w-5 h-5 ${section.color}`} />
                       </div>
-                    ))}
+                      <h3 className="font-bold text-zinc-900 tracking-tight">{section.title}</h3>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {section.metrics.map((metric) => (
+                        <div key={metric.label} className="space-y-2">
+                          <div className="flex justify-between items-center text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-zinc-700">{metric.label}</span>
+                              {metric.brut !== undefined && (
+                                <span className="text-[9px] font-medium text-zinc-400 lowercase italic">
+                                  Donnée brute: {typeof metric.brut === 'number' ? metric.brut.toLocaleString() : metric.brut}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-zinc-900">{metric.value.toFixed(2)} / {metric.max}</span>
+                          </div>
+                          <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(metric.value / metric.max) * 100}%` }}
+                              className={`h-full ${section.barColor}`}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                ))}
+              </div>
+
+              {/* Radar Chart Column */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-indigo-50 rounded-lg">
+                    <RadarIcon className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <h3 className="font-bold text-zinc-900 tracking-tight">Profil Radar</h3>
                 </div>
-              ))}
+                
+                <div className="h-[300px] w-full bg-zinc-50/50 rounded-3xl border border-black/5 p-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: '#64748b', fontWeight: 700 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
+                      <Radar
+                        name={school.ecole}
+                        dataKey="value"
+                        stroke="#dc2626"
+                        fill="#dc2626"
+                        fillOpacity={0.1}
+                        strokeWidth={3}
+                      />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '11px' }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+                
+                <div className="mt-6 p-4 bg-zinc-50 rounded-2xl border border-black/5">
+                  <p className="text-[10px] text-zinc-400 leading-relaxed italic">
+                    Le radar permet de visualiser l'équilibre du profil de l'école sur les 5 dimensions clés.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
