@@ -109,13 +109,20 @@ export const VisualThresholdCard: React.FC<VisualThresholdCardProps> = ({
         .attr("width", 20)
         .attr("height", height - margin.top - margin.bottom)
         .attr("fill", "transparent")
+        .style("cursor", "ew-resize")
         .call(d3.drag<SVGRectElement, any>()
+          .container(svgRef.current!)
+          .on("start", () => setActiveScoreIdx(i))
           .on("drag", (event) => {
-            const val = x.invert(event.x);
+            const mx = event.x;
+            const val = x.invert(mx);
+            if (isNaN(val)) return;
+            
             const newThresholds = [...thresholds];
             newThresholds[i] = Number(val.toFixed(2));
             onChange(newThresholds);
           })
+          .on("end", () => setActiveScoreIdx(null))
         );
 
       // Visual line
